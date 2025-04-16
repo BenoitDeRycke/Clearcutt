@@ -1,11 +1,10 @@
 {
-  "tailwindCSS.includeLanguages": {
-    "css": "tailwindcss"
-  },
-  "tailwindCSS.experimental.configFile": "./tailwind.config.js",
-
   "editor.formatOnSave": true,
   "editor.defaultFormatter": "esbenp.prettier-vscode",
+
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
 
   "eslint.validate": [
     "javascript",
@@ -14,7 +13,8 @@
     "typescriptreact"
   ],
 
-  "editor.codeActionsOnSave": {
-    "source.fixAll.eslint": "explicit"
-  }
+  "tailwindCSS.includeLanguages": {
+    "css": "tailwindcss"
+  },
+  "tailwindCSS.experimental.configFile": "./tailwind.config.js"
 }
