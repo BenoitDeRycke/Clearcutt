@@ -87,13 +87,13 @@ async function getCOGS(orderNumber) {
       cjOrder.orderAmount || cjOrder.payAmount || cjOrder.otherAmount
     ) || 0;
 
-  const fees = +(orderTotal - product - shipping).toFixed(2);
+  const other = +(orderTotal - product - shipping).toFixed(2);
 
   return {
     product,
     shipping,
-    fees,
-    CJtotal: +(product + shipping + fees).toFixed(2),
+    other,
+    CJtotal: +(product + shipping + other).toFixed(2),
   };
 }
 

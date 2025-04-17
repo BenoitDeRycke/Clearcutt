@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import TableCell from '@/components/Orders/TableCell';
 import TableHeading from '@/components/Orders/TableHeading';
+import { numFormatter, currencyFormatter } from '../../utils';
 
 type Order = {
   id: string;
@@ -10,7 +11,8 @@ type Order = {
   vat: number;
   productCost: number;
   shipping: number;
-  fees: number;
+  other: number;
+  payment: number;
   totalCost: number;
   profit: number;
   margin: string;
@@ -49,7 +51,8 @@ function Orders() {
               <TableHeading>Product</TableHeading>
               <TableHeading>Shipping</TableHeading>
               <TableHeading>VAT</TableHeading>
-              <TableHeading>Fees</TableHeading>
+              <TableHeading>Other</TableHeading>
+              <TableHeading>Payment</TableHeading>
               <TableHeading>Total Cost</TableHeading>
               <TableHeading>Profit</TableHeading>
               <TableHeading>Margin</TableHeading>
@@ -61,13 +64,14 @@ function Orders() {
                 <TableCell>{order.id}</TableCell>
                 <TableCell>{order.date}</TableCell>
                 <TableCell>{order.country}</TableCell>
-                <TableCell>{order.revenue}</TableCell>
-                <TableCell>{order.productCost}</TableCell>
-                <TableCell>{order.shipping}</TableCell>
-                <TableCell>{order.vat}</TableCell>
-                <TableCell>{order.fees}</TableCell>
-                <TableCell>{order.totalCost}</TableCell>
-                <TableCell>{order.profit}</TableCell>
+                <TableCell>{currencyFormatter('€', order.revenue)}</TableCell>
+                <TableCell>{currencyFormatter('€', order.productCost)}</TableCell>
+                <TableCell>{currencyFormatter('€', order.shipping)}</TableCell>
+                <TableCell>{currencyFormatter('€', order.vat)}</TableCell>
+                <TableCell>{currencyFormatter('€', order.other)}</TableCell>
+                <TableCell>{currencyFormatter('€', order.payment)}</TableCell>
+                <TableCell>{currencyFormatter('€', order.totalCost)}</TableCell>
+                <TableCell>{currencyFormatter('€', order.profit)}</TableCell>
                 <TableCell>{order.margin}</TableCell>
               </tr>
             ))}
