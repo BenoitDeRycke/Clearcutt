@@ -1,19 +1,20 @@
 require("dotenv").config();
-
 const express = require("express");
 const cors = require("cors");
+
 const app = express();
 const PORT = 3001;
 
 app.use(cors());
 app.use(express.json());
 
-const shopifyRoutes = require("./shopify/orders");
-app.use("/api/shopify", shopifyRoutes);
+const syncRoutes = require("./routes/sync");
+const supabaseRoutes = require("./routes/supabase");
 
-const syncRoutes = require("./sync/index");
-app.use("/api", syncRoutes);
+app.use("/api/sync", syncRoutes); // /api/sync-orders
+app.use("/api/supabase", supabaseRoutes); // /api/supabase/getorders
 
+// ✅ Start server
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
 });

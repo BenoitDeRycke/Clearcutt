@@ -1,9 +1,11 @@
-type TableCellProps = {
+type TableCellProps = React.TdHTMLAttributes<HTMLTableCellElement> & {
   children: React.ReactNode;
 };
 
-function TableCell({ children }: TableCellProps) {
-  return <td className="text-[13px] px-4 py-2 text-left">{children}</td>;
-}
+const TableCell = ({ children, className = '', ...props }: TableCellProps) => (
+  <td className={`text-[13px] px-4 py-2 text-left ${className}`} {...props}>
+    {children}
+  </td>
+);
 
 export default TableCell;
