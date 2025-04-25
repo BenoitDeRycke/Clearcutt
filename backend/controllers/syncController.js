@@ -85,7 +85,7 @@ const syncOrders = async (req, res) => {
         const shipping = parseFloat(cjOrder?.shipping || 0);
         const other = parseFloat(cjOrder?.other || 0);
         const payment = revenue * 0.03 || 0;
-        const total_cost = (cjOrder?.total || 0) + payment;
+        const total_cost = (cjOrder?.total || 0) + payment + vat;
         const profit = revenue - total_cost;
         const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
 
@@ -103,13 +103,11 @@ const syncOrders = async (req, res) => {
           profit,
           margin,
         });
-
-        console.log(`✅ Processed order ${orderNumber}`);
       } catch (err) {
         console.error(`❌ Failed to process order ${order.name}:`, err.message);
       }
     }
-
+    console.log(`✅ Processed orders ${shopifyOrders.length}`);
     const { error } = await supabase
       .from("orders")
       .upsert(enrichedOrders, { onConflict: "id" });
@@ -118,6 +116,11 @@ const syncOrders = async (req, res) => {
       console.error("❌ Supabase insert error:", error.message);
       return res.status(500).json({ error: error.message });
     }
+
+    res.status(200).json({
+      message: "Sync complete",
+      count: enrichedOrders.length,
+    });
 
     res.json({ success: true, count: enrichedOrders.length });
   } catch (err) {
