@@ -10,8 +10,8 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
 
 function SideBar() {
   return (
-    <aside className="h-screen w-56 border-r border-gray-200 bg-white text-sm">
-      <div className="h-14 flex items-center px-6 border-b border-gray-200">
+    <aside className="h-screen w-56 border-r border-gray-200 text-sm">
+      <div className="h-14 flex items-center px-6 border-b border-gray-200 ">
         <h1 className="text-lg font-semibold">Clearcut</h1>
       </div>
 

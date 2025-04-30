@@ -1,8 +1,11 @@
 {
+  "name": "clearcut",
+  "version": "1.0.0",
+  "private": true,
   "devDependencies": {
     "concurrently": "^9.1.2"
   },
   "scripts": {
-  "dev": "concurrently \"cd backend && node index.js\" \"cd frontend && npm run dev\""
-}
+    "dev": "concurrently \"cd backend && node index.js\" \"cd frontend && npm run dev\""
+  }
 }

@@ -1,11 +1,19 @@
 //orders.tsx
 export const numFormatter = (value: number): string => {
-  return parseFloat(value.toString()).toFixed(2);
+  const rounded = Number(Math.round(Number(value + 'e2')) + 'e-2');
+  return rounded.toFixed(2);
 };
 
-export const currencyFormatter = ( currency: string, value: number): string => {
-  const result = currency + numFormatter(value)
-  return result;
+export const currencyFormatter = (currency: string, value: number): string => {
+  if (Math.abs(value) < 0.005) {
+    return '-';
+  }
+  const rounded = Number(Math.round(Number(value + 'e2')) + 'e-2');
+  return currency + rounded.toFixed(2);
+};
+
+export const isZero = (value: number, tolerance = 0.005): boolean => {
+  return Math.abs(value) < tolerance;
 };
 
 export const formatDate = (iso: string): string => {
@@ -41,4 +49,21 @@ export function calculateTotals(orders: Order[]) {
     profit: totalProfit,
     margin: averageMargin,
   };
+}
+
+export function formatRelativeTime(date: Date) {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMinutes = Math.floor(diffMs / 60000);
+
+  if (diffMinutes < 1) return 'just now';
+  if (diffMinutes === 1) return '1 minute ago';
+  if (diffMinutes < 60) return `${diffMinutes} minutes ago`;
+
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours === 1) return '1 hour ago';
+  if (diffHours < 24) return `${diffHours} hours ago`;
+
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
 }

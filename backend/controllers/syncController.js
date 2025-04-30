@@ -1,5 +1,8 @@
 const { fetchCjOrders } = require("../services/cjService");
-const { fetchShopifyOrders } = require("../services/shopifyService");
+const {
+  fetchShopifyOrders,
+  fetchShopifyProducts,
+} = require("../services/shopifyService");
 const supabase = require("../api/supabaseClient");
 
 const VAT_RATES = {
@@ -69,6 +72,7 @@ const syncOrders = async (req, res) => {
       });
     }
     const enrichedOrders = [];
+    const orderItems = [];
 
     for (const order of shopifyOrders) {
       try {
@@ -103,30 +107,86 @@ const syncOrders = async (req, res) => {
           profit,
           margin,
         });
+        for (const item of order.lineItems || []) {
+          const price = parseFloat(item.discountedUnitPrice || "0");
+          const quantity = item.quantity ?? 1;
+
+          const productId = item.product?.id ?? "";
+          const variantId = item.variant?.id ?? "";
+          const productTitle = item.product?.title ?? "";
+          const variantTitle = item.variant?.title ?? "";
+
+          orderItems.push({
+            order_id: order.name,
+            product_id: productId,
+            variant_id: variantId,
+            product_name: productTitle,
+            variant_title: variantTitle,
+            quantity,
+            price,
+          });
+        }
       } catch (err) {
         console.error(`❌ Failed to process order ${order.name}:`, err.message);
       }
     }
-    console.log(`✅ Processed orders ${shopifyOrders.length}`);
+    console.log(`✅ Processed orders ${enrichedOrders.length}`);
+    console.log("🔍 Total order items to insert:", orderItems.length);
     const { error } = await supabase
       .from("orders")
-      .upsert(enrichedOrders, { onConflict: "id" });
+      .upsert(enrichedOrders, { onConflict: "id", returning: "minimal" });
+    try {
+      if (orderItems.length > 0) {
+        const { error } = await supabase.from("order_items").insert(orderItems);
+        if (error) {
+          console.error("❌ Supabase insert failed:", error);
+        } else {
+          console.log(`✅ Inserted ${orderItems.length} order items`);
+        }
+      } else {
+        console.log("⚠️ No order items found to insert.");
+      }
+    } catch (err) {
+      console.error("❌ Crash inserting order_items:", err);
+    }
 
     if (error) {
       console.error("❌ Supabase insert error:", error.message);
       return res.status(500).json({ error: error.message });
     }
 
-    res.status(200).json({
-      message: "Sync complete",
-      count: enrichedOrders.length,
-    });
-
-    res.json({ success: true, count: enrichedOrders.length });
+    return res
+      .status(200)
+      .json({ message: "Sync complete", count: enrichedOrders.length });
   } catch (err) {
     console.error("Sync error:", err.message);
     res.status(500).json({ error: "Failed to sync orders" });
   }
 };
 
-module.exports = { syncOrders };
+const syncProducts = async (req, res) => {
+  try {
+    const products = await fetchShopifyProducts();
+
+    if (products.length === 0) {
+      console.warn("⚠️ No products found to sync.");
+      return res.status(200).json({ message: "No products found", count: 0 });
+    }
+
+    const { error } = await supabase
+      .from("products")
+      .upsert(products, { onConflict: "variant_id", returning: "minimal" });
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res
+      .status(200)
+      .json({ message: "Sync complete", count: products.length });
+  } catch (err) {
+    return res.status(500).json({ error: "Unexpected error" });
+  }
+};
+
+module.exports = { syncOrders, syncProducts };

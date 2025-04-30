@@ -23,12 +23,6 @@ function SidebarSection({
     return location.pathname.startsWith(path);
   });
 
-  useEffect(() => {
-    console.log(`[${title}]`, '→ current path:', location.pathname);
-    console.log(`[${title}]`, '→ matchPaths:', matchPaths);
-    console.log(`[${title}]`, '→ isActive:', isActive);
-  }, [location.pathname]);
-
   return (
     <div>
       <button

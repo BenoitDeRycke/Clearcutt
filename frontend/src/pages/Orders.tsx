@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import TableCell from '@/components/Orders/TableCell';
-import TableHeading from '@/components/Orders/TableHeading';
-import SyncButton from '@/components/Orders/SyncButton';
-import { currencyFormatter, formatDate, numFormatter } from '../../utils/utils';
-import { getMarginColor } from '../../utils/style.utils';
+import TableCell from '@/components/TableCell';
+import TableHeading from '@/components/TableHeading';
+import SyncButton from '@/components/SyncButton';
+import { formatDate, isZero, numFormatter } from '../utils/utils';
+import { getMarginColor } from '../utils/style.utils';
 import type { Order } from '@/types/order';
 import {
   Pagination,
@@ -14,15 +14,29 @@ import {
   PaginationLink,
 } from '@/components/ui/pagination';
 import { toast } from 'sonner';
+import { Info } from 'lucide-react';
+import { useSync } from '@/hooks/useSync';
 
 function Orders() {
   const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const [totalOrders, setTotalOrders] = useState(0);
   const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
   const limit = 50;
   const totalPages = Math.ceil(totalOrders / limit);
+
+  const {
+    lastSynced,
+    handleSync,
+    loading: syncing,
+  } = useSync(async () => {
+    const toastId = toast.loading('Syncing orders...');
+    const res = await fetch('http://localhost:3001/api/sync/sync-orders');
+    if (!res.ok) throw new Error('Sync failed');
+    const data = await res.json();
+    toast.success(`Sync complete! ${data.count} orders updated.`, { id: toastId });
+    await fetchOrders();
+  }, 'orders');
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -43,46 +57,17 @@ function Orders() {
     }
   };
 
-  const handleSync = async () => {
-    try {
-      const data = await toast.promise(
-        fetch('http://localhost:3001/api/sync/sync-orders').then((res) => {
-          if (!res.ok) throw new Error('Sync failed');
-          return res.json();
-        }),
-        {
-          loading: '🔄 Syncing orders...',
-          success: (data) => `Sync complete! ${data.count} orders updated.`,
-          error: 'Sync failed. Please try again.',
-        }
-      );
-
-      setLastSynced(new Date());
-      await fetchOrders();
-    } catch (err) {
-      console.error('Sync error:', err);
-    }
-  };
-
   useEffect(() => {
     fetchOrders();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [page]);
 
   return (
-    <div>
-      <div className="flex justify-between items-center">
-        <div className="flex items-center mb-2.5">
-          <h1 className="text-xl font-bold mr-2.5">Orders</h1>
-          <SyncButton onClick={handleSync} />
-        </div>
-        <span className="text-gray-500">
-          Last synced: {lastSynced ? lastSynced.toLocaleTimeString() : 'Not yet'}
-        </span>
-      </div>
+    <>
+      <SyncButton title="Orders" onClick={handleSync} lastSynced={lastSynced} />
 
-      <table className="w-full border text-sm text-center relative">
-        {loading && (
+      <table className="bg-white w-full border text-sm text-center relative rounded-xl">
+        {(loading || syncing) && (
           <tbody>
             <tr>
               <td colSpan={12}>
@@ -93,7 +78,7 @@ function Orders() {
             </tr>
           </tbody>
         )}
-        <thead className="font-bold bg-blue-950 text-white">
+        <thead className="font-bold text-black bg-clearcut-light">
           <tr>
             <TableHeading>Id</TableHeading>
             <TableHeading>Date</TableHeading>
@@ -101,30 +86,34 @@ function Orders() {
             <TableHeading>Revenue</TableHeading>
             <TableHeading>Product</TableHeading>
             <TableHeading>Shipping</TableHeading>
+            <TableHeading>Ad</TableHeading>
             <TableHeading>VAT</TableHeading>
             <TableHeading>Other</TableHeading>
             <TableHeading>Payment</TableHeading>
             <TableHeading>Total Cost</TableHeading>
             <TableHeading>Profit</TableHeading>
             <TableHeading>
-              <div className="flex items-center gap-1">
-                Margin
-                <div className="relative">
-                  <div className="group w-4 h-4 flex items-center justify-center rounded-full bg-gray-200 text-blue-950 text-xs font-bold cursor-default">
-                    i
-                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-max max-w-xs text-xs bg-gray-100 text-black px-3 py-2 rounded opacity-0 group-hover:opacity-100 transition z-10 whitespace-nowrap pointer-events-none">
-                      <div className="flex items-center gap-1 mb-0.5">
-                        <div className="w-3 h-3 bg-red-600 rounded-sm" /> <span>&lt; 30%</span>
-                      </div>
-                      <div className="flex items-center gap-1 mb-0.5">
-                        <div className="w-3 h-3 bg-orange-500 rounded-sm" /> <span>&lt; 50%</span>
-                      </div>
-                      <div className="flex items-center gap-1 mb-0.5">
-                        <div className="w-3 h-3 bg-emerald-600 rounded-sm" /> <span>&lt; 70%</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <div className="w-3 h-3 bg-purple-600 rounded-sm" /> <span>&gt;70%</span>
-                      </div>
+              <div className="flex justify-end items-center gap-1">
+                <span className="text-right">Margin</span>
+                <div className="relative group">
+                  <Info className="w-4 h-4 text-gray-500 hover:text-clearcut-dark cursor-pointer" />
+
+                  <div className="absolute left-1/2 -translate-x-1/2 mt-2 w-max max-w-xs rounded-md bg-white border px-3 py-2 text-xs text-black shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap z-20 pointer-events-none">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="w-2 h-2 bg-red-600 rounded-sm" />
+                      <span>&lt; 30%</span>
+                    </div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="w-2 h-2 bg-orange-500 rounded-sm" />
+                      <span>&lt; 50%</span>
+                    </div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="w-2 h-2 bg-emerald-600 rounded-sm" />
+                      <span>&lt; 70%</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-clearcut rounded-sm" />
+                      <span>&gt; 70%</span>
                     </div>
                   </div>
                 </div>
@@ -139,18 +128,23 @@ function Orders() {
                 <TableCell>{order.id}</TableCell>
                 <TableCell>{formatDate(order.date)}</TableCell>
                 <TableCell>{order.country_code}</TableCell>
-                <TableCell>{currencyFormatter('€', order.revenue)}</TableCell>
-                <TableCell>{currencyFormatter('€', order.product_cost)}</TableCell>
-                <TableCell>{currencyFormatter('€', order.shipping)}</TableCell>
-                <TableCell>{currencyFormatter('€', order.vat)}</TableCell>
-                <TableCell>{currencyFormatter('€', order.other)}</TableCell>
-                <TableCell>{currencyFormatter('€', order.payment)}</TableCell>
-                <TableCell>{currencyFormatter('€', order.total_cost)}</TableCell>
-                <TableCell>{currencyFormatter('€', order.profit)}</TableCell>
+                <TableCell>{order.revenue}</TableCell>
+                <TableCell>{order.product_cost}</TableCell>
+                <TableCell>{order.shipping}</TableCell>
+                <TableCell>{0}</TableCell>
+                <TableCell>{order.vat}</TableCell>
+                <TableCell>{order.other}</TableCell>
+                <TableCell>{order.payment}</TableCell>
+                <TableCell>{order.total_cost}</TableCell>
+                <TableCell>{order.profit}</TableCell>
                 <TableCell>
-                  <span className={getMarginColor(order.margin)}>
-                    {numFormatter(order.margin) + '%'}
-                  </span>
+                  {isNaN(order.margin) || isZero(order.margin) ? (
+                    <span className="text-gray-400">-</span>
+                  ) : (
+                    <span className={getMarginColor(order.margin)}>
+                      {numFormatter(order.margin) + '%'}
+                    </span>
+                  )}
                 </TableCell>
               </tr>
             ))}
@@ -218,7 +212,7 @@ function Orders() {
           </PaginationContent>
         </Pagination>
       </div>
-    </div>
+    </>
   );
 }
 
