@@ -75,7 +75,7 @@ function Overview() {
     const endOfMonth = new Date(Date.UTC(year, month + 1, 0, 23, 59, 59, 999));
 
     const res = await fetch(
-      `http://clearcutt-backend.onrender.com/api/supabase/getallorders?start=${startOfMonth.toISOString()}&end=${endOfMonth.toISOString()}`
+      `https://clearcutt.onrender.com/api/supabase/getallorders?start=${startOfMonth.toISOString()}&end=${endOfMonth.toISOString()}`
     );
 
     const { orders } = await res.json();
@@ -136,7 +136,7 @@ function Overview() {
     async function fetchOrders() {
       try {
         const res = await fetch(
-          `http://clearcutt-backend.onrender.com/api/supabase/getallorders?start=${start}&end=${end}`
+          `https://clearcutt.onrender.com/api/supabase/getallorders?start=${start}&end=${end}`
         );
         const data = await res.json();
         const realOrders = data.orders || [];

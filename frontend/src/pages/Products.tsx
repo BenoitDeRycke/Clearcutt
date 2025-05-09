@@ -20,7 +20,7 @@ function Products() {
     loading: syncing,
   } = useSync(async () => {
     const toastId = toast.loading('Syncing products...');
-    const res = await fetch('http://clearcutt-backend.onrender.com/api/sync/sync-products');
+    const res = await fetch('https://clearcutt.onrender.com/api/sync/sync-products');
     if (!res.ok) throw new Error('Sync failed');
     const data = await res.json();
     toast.success(`Sync complete! ${data.count} products updated.`, { id: toastId });
@@ -31,8 +31,8 @@ function Products() {
     setLoading(true);
     try {
       const [rawRes, metricsRes] = await Promise.all([
-        fetch('http://clearcutt-backend.onrender.com/api/supabase/getproducts'),
-        fetch('http://clearcutt-backend.onrender.com/api/supabase/getproductmetrics'),
+        fetch('https://clearcutt.onrender.com/api/supabase/getproducts'),
+        fetch('https://clearcutt.onrender.com/api/supabase/getproductmetrics'),
       ]);
 
       if (!rawRes.ok || !metricsRes.ok) throw new Error('One of the requests failed');
