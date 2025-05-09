@@ -39,4 +39,62 @@ async function fetchCjOrders() {
 
   return allOrders;
 }
-module.exports = { fetchCjOrders };
+
+async function fetchCjDisputes() {
+  const token = await getCJAccessToken();
+
+  if (!token) {
+    console.error("❌ No CJ token received");
+    throw new Error("CJ token missing");
+  }
+
+  let page = 1;
+  const pageSize = 100;
+  let allDisputes = [];
+  let hasMore = true;
+
+  const now = new Date();
+  const startTime = "2000-01-01 00:00:00";
+  const endTime = new Date().toISOString().slice(0, 19).replace("T", " ");
+
+  while (hasMore) {
+    try {
+      const res = await axios.get(
+        "https://developers.cjdropshipping.com/api2.0/v1/disputes/getDisputeList",
+        {
+          headers: {
+            "CJ-Access-Token": token,
+          },
+          params: {
+            pageNum: page,
+            pageSize,
+            startTime,
+            endTime,
+            disputeType: "",
+          },
+        }
+      );
+
+      const list = res.data?.data?.list;
+
+      if (!res.data?.result || !Array.isArray(list)) {
+        console.error(
+          "❌ Invalid dispute response from CJ:",
+          JSON.stringify(res.data, null, 2)
+        );
+        throw new Error("Invalid CJ dispute response structure");
+      }
+
+      allDisputes.push(...list);
+
+      hasMore = list.length === pageSize;
+      page++;
+    } catch (err) {
+      console.error("❌ Error fetching CJ disputes:", err.message);
+      throw err;
+    }
+  }
+  return allDisputes;
+}
+
+module.exports = { fetchCjOrders, fetchCjDisputes };

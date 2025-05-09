@@ -1,7 +1,7 @@
 type MetricCardProps = {
   title: string;
   value: string;
-  change?: string; // optional % change
+  change?: string;
 };
 
 function MetricCard({ title, value, change }: MetricCardProps) {

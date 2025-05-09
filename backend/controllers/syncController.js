@@ -1,9 +1,18 @@
-const { fetchCjOrders } = require("../services/cjService");
+const { fetchCjOrders, fetchCjDisputes } = require("../services/cjService");
 const {
   fetchShopifyOrders,
   fetchShopifyProducts,
 } = require("../services/shopifyService");
 const supabase = require("../api/supabaseClient");
+const {
+  determineRefundStatus,
+  calculateOrderTotals,
+  mapOrderItems,
+  mapRefundItems,
+  calculateRefundAmount,
+  determineSources,
+  deduplicateOrderItems,
+} = require("../services/utils");
 
 const VAT_RATES = {
   BE: 0.21,
@@ -38,128 +47,135 @@ const syncOrders = async (req, res) => {
   console.log("⚡️ /sync-orders called");
 
   try {
-    const shopifyOrders = await fetchShopifyOrders();
-    const cjOrders = await fetchCjOrders();
+    const [shopifyOrders, cjOrders, disputes] = await Promise.all([
+      fetchShopifyOrders(),
+      fetchCjOrders(),
+      fetchCjDisputes(),
+    ]);
 
-    if (!cjOrders || !cjOrders.length) {
-      console.error("❌ Missing or invalid CJ orders:", cjOrders);
-      return res.status(500).json({ error: "Missing CJ orders" });
-    }
-
-    if (!shopifyOrders.length) {
-      return res.status(500).json({ error: "Missing Shopify orders" });
-    }
-    if (!cjOrders.length) {
-      return res.status(500).json({ error: "Missing Cj orders" });
+    if (!shopifyOrders.length || !cjOrders.length) {
+      return res.status(500).json({ error: "Missing Shopify or CJ orders" });
     }
 
     const cjMap = new Map();
-
-    for (const cj of cjOrders) {
+    cjOrders.forEach((cj) => {
       const orderNum = (cj.orderNum || "").replace(/^#/, "").trim();
-      if (!orderNum) continue;
-
+      if (!orderNum) return;
       const product = parseFloat(cj.productAmount) || 0;
       const shipping = parseFloat(cj.postageAmount) || 0;
       const total = parseFloat(cj.orderAmount) || 0;
       const other = total - product - shipping;
+      cjMap.set(orderNum, { product, shipping, other, total });
+    });
 
-      cjMap.set(orderNum, {
-        product,
-        shipping,
-        other,
-        total,
-      });
-    }
+    const disputesByOrder = new Map();
+    disputes.forEach((dispute) => {
+      const orderNum = dispute.orderNumber?.replace(/^#/, "").trim();
+      if (!orderNum) return;
+      if (!disputesByOrder.has(orderNum)) disputesByOrder.set(orderNum, []);
+      disputesByOrder.get(orderNum).push(dispute);
+    });
+
     const enrichedOrders = [];
     const orderItems = [];
+    const refundRows = [];
 
     for (const order of shopifyOrders) {
       try {
-        const orderNumber = order.name.replace("#", "").trim();
+        const orderNumber = order.name.replace(/^#/, "").trim();
         const cjOrder = cjMap.get(orderNumber);
-        const date = new Date(order.createdAt)
-          .toISOString()
-          .replace("T", " ")
-          .substring(0, 19);
         const country_code = order.shippingAddress?.countryCode || "—";
-        const revenue = parseFloat(order.totalPrice || 0);
-        const vat = revenue * (VAT_RATES[country_code] || 0);
-        const product_cost = parseFloat(cjOrder?.product || 0);
-        const shipping = parseFloat(cjOrder?.shipping || 0);
-        const other = parseFloat(cjOrder?.other || 0);
-        const payment = revenue * 0.03 || 0;
-        const total_cost = (cjOrder?.total || 0) + payment + vat;
-        const profit = revenue - total_cost;
-        const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
+        const vatRate = VAT_RATES[country_code] || 0;
 
-        enrichedOrders.push({
+        const refunded = determineRefundStatus(order.refunds, order.totalPrice);
+        const rawRevenue = parseFloat(order.totalPrice || 0);
+        const refundAmount =
+          refunded === "partial" ? calculateRefundAmount(order.refunds) : 0;
+        const relevantDisputes = disputesByOrder.get(orderNumber) || [];
+        const isUnfulfilled =
+          !order.fulfillments || order.fulfillments.length === 0;
+
+        const totals = calculateOrderTotals(
+          rawRevenue,
+          cjOrder,
+          vatRate,
+          refundAmount,
+          isUnfulfilled,
+          refunded,
+          relevantDisputes
+        );
+
+        const { platform_source } = determineSources(order);
+
+        const orderRow = {
           id: order.name,
-          date,
+          date: new Date(order.createdAt)
+            .toISOString()
+            .replace("T", " ")
+            .substring(0, 19),
           country_code,
-          revenue,
-          vat,
-          product_cost,
-          shipping,
-          other,
-          payment,
-          total_cost,
-          profit,
-          margin,
-        });
-        for (const item of order.lineItems || []) {
-          const price = parseFloat(item.discountedUnitPrice || "0");
-          const quantity = item.quantity ?? 1;
-
-          const productId = item.product?.id ?? "";
-          const variantId = item.variant?.id ?? "";
-          const productTitle = item.product?.title ?? "";
-          const variantTitle = item.variant?.title ?? "";
-
-          orderItems.push({
-            order_id: order.name,
-            product_id: productId,
-            variant_id: variantId,
-            product_name: productTitle,
-            variant_title: variantTitle,
-            quantity,
-            price,
-          });
+          refunded,
+          platform_source,
+          ...totals,
+        };
+        if (order.name === "#2154") {
+          console.log("🧾 Full Shopify Order #2154:");
+          console.dir(order, { depth: null });
         }
+        enrichedOrders.push(orderRow);
+        orderItems.push(...mapOrderItems(order));
+        refundRows.push(...mapRefundItems(order));
       } catch (err) {
         console.error(`❌ Failed to process order ${order.name}:`, err.message);
       }
     }
-    console.log(`✅ Processed orders ${enrichedOrders.length}`);
-    console.log("🔍 Total order items to insert:", orderItems.length);
-    const { error } = await supabase
-      .from("orders")
-      .upsert(enrichedOrders, { onConflict: "id", returning: "minimal" });
-    try {
-      if (orderItems.length > 0) {
-        const { error } = await supabase.from("order_items").insert(orderItems);
-        if (error) {
-          console.error("❌ Supabase insert failed:", error);
-        } else {
-          console.log(`✅ Inserted ${orderItems.length} order items`);
-        }
-      } else {
-        console.log("⚠️ No order items found to insert.");
-      }
-    } catch (err) {
-      console.error("❌ Crash inserting order_items:", err);
-    }
+
+    const { error } = await supabase.from("orders").upsert(enrichedOrders, {
+      onConflict: "id",
+      returning: "representation",
+    });
 
     if (error) {
-      console.error("❌ Supabase insert error:", error.message);
-      return res.status(500).json({ error: error.message });
+      console.error("❌ Supabase insert error:", error);
+      return res.status(500).json({ error });
+    } else {
+      console.log(`✅ Upserted ${enrichedOrders.length} orders`);
     }
 
-    return res
+    try {
+      if (orderItems.length > 0) {
+        const dedupedOrderItems = deduplicateOrderItems(orderItems);
+
+        const { error } = await supabase
+          .from("order_items")
+          .upsert(dedupedOrderItems, {
+            onConflict: "order_id,variant_id",
+          });
+
+        if (error)
+          console.error("❌ Supabase upsert order_items failed:", error);
+        else console.log(`✅ Upserted ${dedupedOrderItems.length} order items`);
+      }
+
+      if (refundRows.length > 0) {
+        const { error } = await supabase
+          .from("order_refund")
+          .upsert(refundRows, {
+            onConflict: ["refund_id", "variant_id"],
+          });
+        if (error)
+          console.error("❌ Supabase upsert refundRows failed:", error);
+        else console.log(`✅ Upserted ${refundRows.length} refund rows`);
+      }
+    } catch (err) {
+      console.error("❌ Crash during item/refund upserts:", err);
+    }
+
+    res
       .status(200)
       .json({ message: "Sync complete", count: enrichedOrders.length });
   } catch (err) {
-    console.error("Sync error:", err.message);
+    console.error("❌ Sync error:", err.message);
     res.status(500).json({ error: "Failed to sync orders" });
   }
 };
@@ -181,11 +197,9 @@ const syncProducts = async (req, res) => {
       return res.status(500).json({ error: error.message });
     }
 
-    return res
-      .status(200)
-      .json({ message: "Sync complete", count: products.length });
+    res.status(200).json({ message: "Sync complete", count: products.length });
   } catch (err) {
-    return res.status(500).json({ error: "Unexpected error" });
+    res.status(500).json({ error: "Unexpected error" });
   }
 };
 

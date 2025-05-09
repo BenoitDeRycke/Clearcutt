@@ -67,8 +67,25 @@ const getProductsFromSupabase = async (req, res) => {
   }
 };
 
+const getProductMetricsFromSupabase = async (req, res) => {
+  try {
+    const { data, error } = await supabase.rpc("get_product_metrics");
+
+    if (error) {
+      console.error("❌ Error fetching product metrics:", error.message);
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.status(200).json({ products: data });
+  } catch (err) {
+    console.error("❌ Unexpected server error:", err.message);
+    return res.status(500).json({ error: "Unexpected error occurred." });
+  }
+};
+
 module.exports = {
   getOrdersFromSupabase,
   getAllOrdersFromSupabase,
   getProductsFromSupabase,
+  getProductMetricsFromSupabase,
 };

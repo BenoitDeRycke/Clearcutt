@@ -3,9 +3,16 @@ import { isZero, currencyFormatter } from '../utils/utils';
 type TableCellProps = React.TdHTMLAttributes<HTMLTableCellElement> & {
   children?: React.ReactNode;
   currency?: string;
+  format?: 'currency' | 'number' | 'raw'; // new prop
 };
 
-const TableCell = ({ children, currency = '€', className = '', ...props }: TableCellProps) => {
+const TableCell = ({
+  children,
+  currency = '€',
+  format = 'currency',
+  className = '',
+  ...props
+}: TableCellProps) => {
   let content = children;
   let applyGray = false;
 
@@ -14,7 +21,11 @@ const TableCell = ({ children, currency = '€', className = '', ...props }: Tab
       content = '-';
       applyGray = true;
     } else {
-      content = currencyFormatter(currency, children);
+      if (format === 'currency') {
+        content = currencyFormatter(currency, children);
+      } else if (format === 'number') {
+        content = children.toLocaleString();
+      }
     }
   }
 

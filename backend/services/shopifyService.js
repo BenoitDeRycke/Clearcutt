@@ -2,22 +2,37 @@ const shopify = require("../api/shopify");
 
 const fetchOrders = async (cursor = null) => {
   const query = `
-query($cursor: String) {
-  orders(first: 50, sortKey: CREATED_AT, reverse: true, after: $cursor) {
-    edges {
-      node {
-        id
-        name
-        createdAt
-        totalPrice
-        shippingAddress {
-          countryCode
-        }
-        lineItems(first: 100) {
+  query($cursor: String) {
+    orders(first: 25, sortKey: CREATED_AT, reverse: true, after: $cursor) {
+      edges {
+        node {
+          id
+          name
+          createdAt
+          totalPrice
+          fulfillments {
+            id
+          }
+          shippingAddress {
+            countryCode
+          }
+          lineItems(first: 50) {
   edges {
     node {
+      id
       quantity
-      discountedUnitPrice
+      discountedUnitPriceSet {
+        shopMoney {
+          amount
+        }
+      }
+      discountAllocations {
+        allocatedAmountSet {
+          shopMoney {
+            amount
+          }
+        }
+      }
       product {
         id
         title
@@ -29,19 +44,47 @@ query($cursor: String) {
     }
   }
 }
+          refunds {
+            id
+            transactions(first: 25) {
+              edges {
+                node {
+                  amount
+                }
+              }
+            }
+            refundLineItems(first: 25) {
+              edges {
+                node {
+                  quantity
+                  lineItem {
+                    variant {
+                      id
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
       }
     }
-    pageInfo {
-      hasNextPage
-      endCursor
-    }
   }
-}
 `;
 
   const variables = { cursor };
 
   const response = await shopify.post("", { query, variables });
+
+  // 🔍 Add this logging block
+  if (response.data?.errors) {
+    console.error("❌ Shopify GraphQL errors:", response.data.errors);
+    throw new Error("Shopify GraphQL error");
+  }
 
   const data = response.data?.data?.orders;
   if (!data) throw new Error("Invalid Shopify API response");

@@ -50,7 +50,9 @@ const lineConfigs = [
 ];
 
 function Overview() {
-  const { start, end } = getCurrentMonthRange();
+  //const { start, end } = getCurrentMonthRange();
+  const start = new Date('2025-04-01').toISOString();
+  const end = new Date('2025-04-30T23:59:59').toISOString();
   const {
     lastSynced,
     handleSync,
@@ -118,7 +120,7 @@ function Overview() {
           profit: dailyData.get(dateStr)?.profit || 0,
         });
 
-        current.setDate(current.getDate() + 1); // move next day
+        current.setDate(current.getDate() + 1);
       }
       setLineChartData(fullMonthData);
     }
@@ -193,21 +195,9 @@ function Overview() {
       <div className="flex flex-col lg:flex-row gap-6">
         <div className="flex-1 space-y-6 flex flex-col justify-between">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 pr-0 lg:pr-2">
-            <MetricCard
-              title="Total Revenue"
-              value={`€${metrics.revenue.toLocaleString()}`}
-              change="10%"
-            />
-            <MetricCard
-              title="Total Cost"
-              value={`€${metrics.cost.toLocaleString()}`}
-              change="12%"
-            />
-            <MetricCard
-              title="Total Profit"
-              value={`€${metrics.profit.toLocaleString()}`}
-              change="50%"
-            />
+            <MetricCard title="Total Revenue" value={`€${metrics.revenue.toFixed(2)}`} change="1" />
+            <MetricCard title="Total Cost" value={`€${metrics.cost.toFixed(2)}`} change="2" />
+            <MetricCard title="Total Profit" value={`€${metrics.profit.toFixed(2)}`} change="3" />
           </div>
           <LineChart title="Revenue Overview" data={lineChartData} lines={lineConfigs} />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 pt-3.5">

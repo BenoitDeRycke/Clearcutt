@@ -30,14 +30,31 @@ function Products() {
   const fetchProduct = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`http://localhost:3001/api/supabase/getproducts`);
-      if (!res.ok) throw new Error(`Server error: ${res.status}`);
-      const data = await res.json();
-      if (!Array.isArray(data.products)) throw new Error('Invalid data received');
-      setProducts(data.products);
-    } catch (err: any) {
-      console.error('Error fetching orders:', err);
-      toast.error('Failed to fetch orders. Please try again.');
+      const [rawRes, metricsRes] = await Promise.all([
+        fetch('http://localhost:3001/api/supabase/getproducts'),
+        fetch('http://localhost:3001/api/supabase/getproductmetrics'),
+      ]);
+
+      if (!rawRes.ok || !metricsRes.ok) throw new Error('One of the requests failed');
+
+      const rawData = await rawRes.json();
+      const metricsData = await metricsRes.json();
+
+      const rawProducts: Product[] = rawData.products;
+      const metrics: Partial<Product>[] = metricsData.products;
+
+      const merged = rawProducts.map((p: Product) => {
+        const metric = metrics.find((m: Partial<Product>) => m.variant_id === p.variant_id);
+        return {
+          ...p,
+          ...metric,
+        };
+      });
+
+      setProducts(merged);
+    } catch (err) {
+      console.error('Error fetching products:', err);
+      toast.error('❌ Failed to fetch product data.');
     } finally {
       setLoading(false);
     }
@@ -76,6 +93,11 @@ function Products() {
             <TableHeading className="text-left">Product Name</TableHeading>
             <TableHeading>Status</TableHeading>
             <TableHeading>Units Sold</TableHeading>
+            <TableHeading>Revenue</TableHeading>
+            <TableHeading>Product</TableHeading>
+            <TableHeading>Shipping</TableHeading>
+            <TableHeading>Ad</TableHeading>
+            <TableHeading>Other</TableHeading>
             <TableHeading>Total Cost</TableHeading>
             <TableHeading>Profit</TableHeading>
             <TableHeading>
@@ -110,11 +132,20 @@ function Products() {
           {Object.entries(grouped).map(([productId, variants]) => {
             const isOpen = expanded[productId];
             const first = variants[0];
+
+            const totalUnits = variants.reduce((sum, v) => sum + (v.units_sold || 0), 0);
+            const totalRevenue = variants.reduce((sum, v) => sum + (v.revenue || 0), 0);
+            const totalProduct = variants.reduce((sum, v) => sum + (v.product_cost || 0), 0);
+            const totalShipping = variants.reduce((sum, v) => sum + (v.shipping || 0), 0);
+            const totalAd = variants.reduce((sum, v) => sum + (v.ad || 0), 0);
+            const totalOther = variants.reduce((sum, v) => sum + (v.other || 0), 0);
+            const totalCost = totalProduct + totalShipping + totalAd + totalOther;
+            const totalProfit = totalRevenue - totalCost;
+
             return (
               <>
                 <tr className="border-t bg-white" key={productId}>
                   <TableCell className="text-left">
-                    {first.product_name}
                     <button
                       onClick={() =>
                         setExpanded((prev) => ({
@@ -122,23 +153,54 @@ function Products() {
                           [productId]: !prev[productId],
                         }))
                       }
-                      className="ml-2 font-bold text-gray-600 hover:text-black"
+                      className="mr-2 font-bold text-gray-600 hover:text-black"
                     >
                       {isOpen ? '▾' : '▸'}
                     </button>
+                    {first.product_name}
                   </TableCell>
                   <TableCell>
-                    <StatusBadge status={first.status || 'unknown'} />
+                    <span
+                      className={`px-2 py-1 text-xs rounded-full font-medium ${
+                        first.status === 'Active'
+                          ? 'bg-emerald-100 text-emerald-600'
+                          : 'bg-blue-100 text-blue-600'
+                      }`}
+                    >
+                      {first.status}
+                    </span>
                   </TableCell>
-                  <TableCell></TableCell>
+                  <TableCell format="number">{totalUnits}</TableCell>
+                  <TableCell>{totalRevenue}</TableCell>
+                  <TableCell>{totalProduct}</TableCell>
+                  <TableCell>{totalShipping}</TableCell>
+                  <TableCell>{totalAd}</TableCell>
+                  <TableCell>{totalOther}</TableCell>
+                  <TableCell>{totalCost}</TableCell>
+                  <TableCell>{totalProfit}</TableCell>
                 </tr>
+
                 {isOpen &&
                   variants.map((v) => (
                     <tr key={v.variant_id} className="border-t bg-gray-50">
-                      <TableCell className="pl-10 text-left text-gray-700">
-                        {v.variant_title}
-                      </TableCell>
+                      <TableCell className="text-left pl-8">{v.variant_title}</TableCell>
                       <TableCell></TableCell>
+                      <TableCell format="number">{v.units_sold}</TableCell>
+                      <TableCell>{v.revenue}</TableCell>
+                      <TableCell>{v.product_cost}</TableCell>
+                      <TableCell>{v.shipping}</TableCell>
+                      <TableCell>{v.ad}</TableCell>
+                      <TableCell>{v.other}</TableCell>
+                      <TableCell>
+                        {(v.product_cost || 0) + (v.shipping || 0) + (v.ad || 0) + (v.other || 0)}
+                      </TableCell>
+                      <TableCell>
+                        {(v.revenue || 0) -
+                          ((v.product_cost || 0) +
+                            (v.shipping || 0) +
+                            (v.ad || 0) +
+                            (v.other || 0))}
+                      </TableCell>
                     </tr>
                   ))}
               </>

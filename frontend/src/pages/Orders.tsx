@@ -17,13 +17,35 @@ import { toast } from 'sonner';
 import { Info } from 'lucide-react';
 import { useSync } from '@/hooks/useSync';
 
+const disputeOrders = new Set([
+  '#2092',
+  '#2033',
+  '#2016',
+  '#2014',
+  '#2005',
+  '#1999',
+  '#1969',
+  '#1967',
+  '#1915',
+  '#1911',
+  '#1882',
+  '#1881',
+  '#1868',
+  '#1863',
+  '#1834',
+  '#1806',
+  '#1756',
+  '#1696',
+  '#1636',
+]);
+
 function Orders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [totalOrders, setTotalOrders] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
-  const limit = 50;
-  const totalPages = Math.ceil(totalOrders / limit);
+  const limit = 1000; // pull all so we can filter in memory
+  const totalPages = 1;
 
   const {
     lastSynced,
@@ -41,14 +63,12 @@ function Orders() {
   const fetchOrders = async () => {
     setLoading(true);
     try {
-      const res = await fetch(
-        `http://localhost:3001/api/supabase/getorders?page=${page}&limit=${limit}`
-      );
+      const res = await fetch(`http://localhost:3001/api/supabase/getorders?page=1&limit=${limit}`);
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
       const data = await res.json();
       if (!Array.isArray(data.orders)) throw new Error('Invalid data received');
-      setOrders(data.orders);
-      setTotalOrders(data.total);
+      setOrders(data.orders.filter((o: Order) => disputeOrders.has(o.id)));
+      setTotalOrders(data.orders.length);
     } catch (err: any) {
       console.error('Error fetching orders:', err);
       toast.error('❌ Failed to fetch orders. Please try again.');
@@ -60,7 +80,7 @@ function Orders() {
   useEffect(() => {
     fetchOrders();
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [page]);
+  }, []);
 
   return (
     <>
@@ -97,7 +117,6 @@ function Orders() {
                 <span className="text-right">Margin</span>
                 <div className="relative group">
                   <Info className="w-4 h-4 text-gray-500 hover:text-clearcut-dark cursor-pointer" />
-
                   <div className="absolute left-1/2 -translate-x-1/2 mt-2 w-max max-w-xs rounded-md bg-white border px-3 py-2 text-xs text-black shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap z-20 pointer-events-none">
                     <div className="flex items-center gap-2 mb-1">
                       <div className="w-2 h-2 bg-red-600 rounded-sm" />
@@ -122,96 +141,36 @@ function Orders() {
           </tr>
         </thead>
         <tbody>
-          {Array.isArray(orders) &&
-            orders.map((order, i) => (
-              <tr key={i} className="border-t">
-                <TableCell>{order.id}</TableCell>
-                <TableCell>{formatDate(order.date)}</TableCell>
-                <TableCell>{order.country_code}</TableCell>
-                <TableCell>{order.revenue}</TableCell>
-                <TableCell>{order.product_cost}</TableCell>
-                <TableCell>{order.shipping}</TableCell>
-                <TableCell>{0}</TableCell>
-                <TableCell>{order.vat}</TableCell>
-                <TableCell>{order.other}</TableCell>
-                <TableCell>{order.payment}</TableCell>
-                <TableCell>{order.total_cost}</TableCell>
-                <TableCell>{order.profit}</TableCell>
-                <TableCell>
-                  {isNaN(order.margin) || isZero(order.margin) ? (
-                    <span className="text-gray-400">-</span>
-                  ) : (
-                    <span className={getMarginColor(order.margin)}>
-                      {numFormatter(order.margin) + '%'}
-                    </span>
-                  )}
-                </TableCell>
-              </tr>
-            ))}
+          {orders.map((order, i) => (
+            <tr
+              key={i}
+              className={`border-t ${order.profit === 0 ? 'bg-gray-100 text-gray-400 opacity-60' : ''}`}
+            >
+              <TableCell>{order.id}</TableCell>
+              <TableCell>{formatDate(order.date)}</TableCell>
+              <TableCell>{order.country_code}</TableCell>
+              <TableCell>{order.revenue}</TableCell>
+              <TableCell>{order.product_cost}</TableCell>
+              <TableCell>{order.shipping}</TableCell>
+              <TableCell>{0}</TableCell>
+              <TableCell>{order.vat}</TableCell>
+              <TableCell>{order.other}</TableCell>
+              <TableCell>{order.payment}</TableCell>
+              <TableCell>{order.total_cost}</TableCell>
+              <TableCell>{order.profit}</TableCell>
+              <TableCell>
+                {isNaN(order.margin) || isZero(order.margin) ? (
+                  <span className="text-gray-400">-</span>
+                ) : (
+                  <span className={getMarginColor(order.margin)}>
+                    {numFormatter(order.margin) + '%'}
+                  </span>
+                )}
+              </TableCell>
+            </tr>
+          ))}
         </tbody>
       </table>
-
-      <div className="mt-6 flex justify-center">
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className={page === 1 ? 'pointer-events-none opacity-50' : ''}
-              />
-            </PaginationItem>
-
-            <PaginationItem>
-              <PaginationLink
-                isActive={page === 1}
-                onClick={() => setPage(1)}
-                className="cursor-pointer"
-              >
-                1
-              </PaginationLink>
-            </PaginationItem>
-
-            {page === 1 && totalPages > 2 && (
-              <PaginationItem>
-                <span className="px-2 text-gray-400">...</span>
-              </PaginationItem>
-            )}
-
-            {page !== 1 && page !== totalPages && (
-              <PaginationItem>
-                <PaginationLink isActive className="cursor-pointer">
-                  {page}
-                </PaginationLink>
-              </PaginationItem>
-            )}
-
-            {page === totalPages && totalPages > 2 && (
-              <PaginationItem>
-                <span className="px-2 text-gray-400">...</span>
-              </PaginationItem>
-            )}
-
-            {totalPages !== 1 && (
-              <PaginationItem>
-                <PaginationLink
-                  isActive={page === totalPages}
-                  onClick={() => setPage(totalPages)}
-                  className="cursor-pointer"
-                >
-                  {totalPages}
-                </PaginationLink>
-              </PaginationItem>
-            )}
-
-            <PaginationItem>
-              <PaginationNext
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                className={page === totalPages ? 'pointer-events-none opacity-50' : ''}
-              />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
-      </div>
     </>
   );
 }
