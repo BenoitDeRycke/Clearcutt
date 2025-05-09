@@ -11,10 +11,9 @@ app.use(express.json());
 const syncRoutes = require("./routes/sync");
 const supabaseRoutes = require("./routes/supabase");
 
-app.use("/api/sync", syncRoutes); // /api/sync-orders
-app.use("/api/supabase", supabaseRoutes); // /api/supabase/getorders
+app.use("/api/sync", syncRoutes);
+app.use("/api/supabase", supabaseRoutes);
 
-// ✅ Start server
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });

@@ -53,7 +53,7 @@ function Orders() {
     loading: syncing,
   } = useSync(async () => {
     const toastId = toast.loading('Syncing orders...');
-    const res = await fetch('http://localhost:3001/api/sync/sync-orders');
+    const res = await fetch('http://clearcutt-backend.onrender.com/api/sync/sync-orders');
     if (!res.ok) throw new Error('Sync failed');
     const data = await res.json();
     toast.success(`Sync complete! ${data.count} orders updated.`, { id: toastId });
@@ -63,7 +63,9 @@ function Orders() {
   const fetchOrders = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`http://localhost:3001/api/supabase/getorders?page=1&limit=${limit}`);
+      const res = await fetch(
+        `http://clearcutt-backend.onrender.com/api/supabase/getorders?page=1&limit=${limit}`
+      );
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
       const data = await res.json();
       if (!Array.isArray(data.orders)) throw new Error('Invalid data received');

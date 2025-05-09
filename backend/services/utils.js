@@ -119,16 +119,6 @@ function mapOrderItems(order) {
     const discountPerUnit = quantity > 0 ? totalDiscount / quantity : 0;
     const finalUnitPrice = unitPrice - discountPerUnit;
 
-    if (order.name === "#2154") {
-      console.log(`🧾 Order ${order.name}`);
-      console.log(`🛒 Product: ${productTitle}`);
-      console.log(`🔢 Quantity: ${quantity}`);
-      console.log(`💳 Final Unit Price: ${unitPrice}`);
-      console.log(`💸 Total Discount Allocated: ${totalDiscount}`);
-      console.log(`➖ Discount Per Unit: ${discountPerUnit}`);
-      console.log(`✅ Stored Price (unit - discount): ${finalUnitPrice}`);
-    }
-
     if (item.variant?.id && quantity > 0) {
       items.push({
         order_id: order.name,
